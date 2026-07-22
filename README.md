@@ -3,7 +3,7 @@
 
 The Redmi Note 14 Pro (codenamed _"malachite"_) is a high-end, mid-range smartphone from Xiaomi.
 
-It was released in May 2023.
+It was released in September 26, 2024.
 
 ## Device specifications
 
@@ -45,3 +45,21 @@ repo sync -j$(nproc --all)
 ```
 
 Then add these projects to .repo/manifest.xml:
+
+```xml
+<project path="device/xiaomi/malachite" name="mytiantian001/android_device_xiaomi_malachite_twrp" remote="github" revision="a16" />
+```
+
+Finally execute these:
+
+```
+source build/envsetup.sh
+repopick <needed patch>
+lunch twrp_malachite-eng
+mka vendorbootimage -j$(nproc --all)
+```
+## To use it:
+
+```
+fastboot flash vendor_boot out/target/product/malachite/vendor_boot.img
+```
