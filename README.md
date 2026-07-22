@@ -9,7 +9,7 @@ It was released in September 26, 2024.
 
 Basic   |    Spec Sheet
 -------:|:-------------------------
-CPU    |  Octa-core (2x2.5 GHz Cortex-A78 & 6x2.0 GHz Cortex-A55)	
+CPU    |  Octa-core (4x2.5 GHz Cortex-A78 & 4x2.0 GHz Cortex-A55)	
 Chipset |  Mediatek Dimensity 7300-Ultra
 GPU    |  Mali-G615 MC2
 Memory |	8GB/12GB RAM (LPDDR5)	
