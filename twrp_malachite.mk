@@ -22,7 +22,7 @@ $(call inherit-product, $(DEVICE_PATH)/device.mk)
 # Device identifier
 PRODUCT_DEVICE := malachite
 PRODUCT_NAME := twrp_malachite
-PRODUCT_BRAND := Redmi
-PRODUCT_MODEL := 24090RA29C
+PRODUCT_BRAND := Poco
+PRODUCT_MODEL := 24095PCADG
 PRODUCT_MANUFACTURER := Xiaomi
-PRODUCT_RELEASE_NAME := Redmi Note 14 Pro
+PRODUCT_RELEASE_NAME := Poco X7
