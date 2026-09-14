@@ -42,9 +42,9 @@ jobs:
             lib32z1-dev \
             libelf-dev \
             liblz4-tool \
-            libncurses5-dev \
-            libssl-dev \
-            libxml2 \
+            lib32ncurses-dev \
+            lib32z1-dev \
+            libelf-dev \
             libxml2-utils \
             lz4 \
             make \
