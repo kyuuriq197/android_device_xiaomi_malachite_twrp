@@ -9,29 +9,21 @@ jobs:
 
     steps:
 
-      # ---------------------------------------------------------
-      # 1. Set up job
-      # ---------------------------------------------------------
       - name: Set up job
         run: |
-          echo "======================================"
-          echo "   TWRP build - Xiaomi malachite"
-          echo "======================================"
-          echo "Runner: $(uname -a)"
+          echo "========================================"
+          echo " Building TWRP vendor_boot for malachite"
+          echo "========================================"
           echo "CPU: $(nproc)"
           free -h
           df -h
 
-      # ---------------------------------------------------------
-      # 2. Install dependencies
-      # ---------------------------------------------------------
       - name: Install dependencies
         run: |
           sudo apt-get update
 
           sudo apt-get install -y \
             adb \
-            aria2 \
             bc \
             bison \
             build-essential \
@@ -50,9 +42,7 @@ jobs:
             lib32z1-dev \
             libelf-dev \
             liblz4-tool \
-            libncurses5 \
             libncurses5-dev \
-            libncurses6 \
             libssl-dev \
             libxml2 \
             libxml2-utils \
@@ -68,12 +58,6 @@ jobs:
             zip \
             zlib1g-dev
 
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-
-      # ---------------------------------------------------------
-      # 3. Install repo
-      # ---------------------------------------------------------
       - name: Install repo
         run: |
           mkdir -p "$HOME/bin"
@@ -86,24 +70,18 @@ jobs:
 
           echo "$HOME/bin" >> "$GITHUB_PATH"
 
-          repo --version
+          "$HOME/bin/repo" --version
 
-      # ---------------------------------------------------------
-      # 4. Initialize TWRP
-      # ---------------------------------------------------------
       - name: Initialize TWRP
         run: |
           mkdir -p "$GITHUB_WORKSPACE/twrp"
           cd "$GITHUB_WORKSPACE/twrp"
 
           repo init \
+            --depth=1 \
             -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git \
-            -b twrp-16.0 \
-            --depth=1
+            -b twrp-14.1
 
-      # ---------------------------------------------------------
-      # 5. Add malachite tree
-      # ---------------------------------------------------------
       - name: Add malachite tree
         run: |
           cd "$GITHUB_WORKSPACE/twrp"
@@ -123,29 +101,20 @@ jobs:
           </manifest>
           EOF
 
-          echo "===== Manifest ====="
+          echo "===== malachite manifest ====="
           cat .repo/local_manifests/malachite.xml
 
-      # ---------------------------------------------------------
-      # 6. Sync sources
-      # ---------------------------------------------------------
       - name: Sync sources
         run: |
           cd "$GITHUB_WORKSPACE/twrp"
 
           repo sync \
-            -c \
+            --force-sync \
             --no-clone-bundle \
             --no-tags \
-            --optimized-fetch \
-            --prune \
-            --force-sync \
-            -j"$(nproc)"
+            -j"$(nproc --all)"
 
-      # ---------------------------------------------------------
-      # 7. Check device tree
-      # ---------------------------------------------------------
-      - name: Check malachite tree
+      - name: Check device tree
         run: |
           cd "$GITHUB_WORKSPACE/twrp"
 
@@ -154,20 +123,12 @@ jobs:
 
           echo
           echo "===== AndroidProducts.mk ====="
-          if [ -f device/xiaomi/malachite/AndroidProducts.mk ]; then
-            cat device/xiaomi/malachite/AndroidProducts.mk
-          else
-            echo "ERROR: AndroidProducts.mk not found!"
-            exit 1
-          fi
+          cat device/xiaomi/malachite/AndroidProducts.mk
 
           echo
-          echo "===== BoardConfig ====="
-          ls -la device/xiaomi/malachite/BoardConfig*.mk || true
+          echo "===== TWRP makefile ====="
+          cat device/xiaomi/malachite/twrp_malachite.mk
 
-      # ---------------------------------------------------------
-      # 8. Build TWRP
-      # ---------------------------------------------------------
       - name: Build TWRP
         run: |
           cd "$GITHUB_WORKSPACE/twrp"
@@ -176,129 +137,46 @@ jobs:
 
           source build/envsetup.sh
 
-          echo
-          echo "======================================"
-          echo " Available malachite lunch targets"
-          echo "======================================"
+          echo "========================================"
+          echo " lunch twrp_malachite-eng"
+          echo "========================================"
 
-          TARGETS="$(get_build_var COMMON_LUNCH_CHOICES 2>/dev/null \
-            | tr ' ' '\n' \
-            | grep '^twrp_malachite-' \
-            || true)"
+          lunch twrp_malachite-eng
 
-          echo "$TARGETS"
+          echo "========================================"
+          echo " Building vendor_boot.img"
+          echo "========================================"
 
-          if [ -z "$TARGETS" ]; then
-            echo
-            echo "ERROR: No twrp_malachite lunch target found!"
-            echo
-            echo "All TWRP targets:"
-            get_build_var COMMON_LUNCH_CHOICES \
-              | tr ' ' '\n' \
-              | grep -i twrp \
-              || true
-            exit 1
-          fi
+          mka vendorbootimage -j"$(nproc --all)"
 
-          TARGET="$(echo "$TARGETS" | head -n 1)"
-
-          echo
-          echo "======================================"
-          echo " Selected target: $TARGET"
-          echo "======================================"
-
-          lunch "$TARGET"
-
-          echo
-          echo "======================================"
-          echo " Building recovery"
-          echo "======================================"
-
-          mka recoveryimage
-
-          echo
-          echo "======================================"
-          echo " Build finished"
-          echo "======================================"
-
-          echo
-          echo "Output directory:"
-          ls -lah "out/target/product/malachite/" || true
-
-          echo
-          echo "Recovery images:"
-          find "out/target/product/malachite/" \
-            -maxdepth 1 \
-            -type f \
-            \( -name "*recovery*.img" -o -name "vendor_boot.img" \) \
-            -print
-
-      # ---------------------------------------------------------
-      # 9. Prepare artifacts
-      # ---------------------------------------------------------
-      - name: Prepare artifacts
-        if: success()
+      - name: Check output
         run: |
           cd "$GITHUB_WORKSPACE/twrp"
 
-          mkdir -p "$GITHUB_WORKSPACE/artifacts"
+          echo "========================================"
+          echo " Checking vendor_boot.img"
+          echo "========================================"
 
-          PRODUCT_OUT="out/target/product/malachite"
-
-          echo "===== Searching for output files ====="
-
-          find "$PRODUCT_OUT" \
-            -maxdepth 1 \
-            -type f \
-            -name "*.img" \
-            -print || true
-
-          # Recovery
-          if [ -f "$PRODUCT_OUT/recovery.img" ]; then
-            cp "$PRODUCT_OUT/recovery.img" \
-              "$GITHUB_WORKSPACE/artifacts/recovery.img"
-          fi
-
-          # Vendor boot, if generated
-          if [ -f "$PRODUCT_OUT/vendor_boot.img" ]; then
-            cp "$PRODUCT_OUT/vendor_boot.img" \
-              "$GITHUB_WORKSPACE/artifacts/vendor_boot.img"
-          fi
-
-          # Boot image, if generated
-          if [ -f "$PRODUCT_OUT/boot.img" ]; then
-            cp "$PRODUCT_OUT/boot.img" \
-              "$GITHUB_WORKSPACE/artifacts/boot.img"
-          fi
+          ls -lh out/target/product/malachite/vendor_boot.img
 
           echo
-          echo "===== Artifacts ====="
-          ls -lah "$GITHUB_WORKSPACE/artifacts"
+          echo "File information:"
+          file out/target/product/malachite/vendor_boot.img
 
-      # ---------------------------------------------------------
-      # 10. Upload TWRP images
-      # ---------------------------------------------------------
-      - name: Upload TWRP images
-        if: success()
+          echo
+          echo "Size:"
+          du -h out/target/product/malachite/vendor_boot.img
+
+      - name: Upload vendor_boot.img
         uses: actions/upload-artifact@v4
         with:
-          name: TWRP-malachite
-          path: artifacts/
+          name: vendor_boot-malachite
+          path: twrp/out/target/product/malachite/vendor_boot.img
           if-no-files-found: error
 
-      # ---------------------------------------------------------
-      # 11. Complete job
-      # ---------------------------------------------------------
       - name: Complete job
         if: always()
         run: |
-          echo
-          echo "======================================"
-          echo "             BUILD RESULT"
-          echo "======================================"
-
-          if [ "${{ job.status }}" = "success" ]; then
-            echo "TWRP build completed successfully."
-          else
-            echo "TWRP build failed."
-          fi
+          echo "========================================"
+          echo " Workflow finished"
+          echo "========================================"
