@@ -1,4 +1,4 @@
 <project path="device/xiaomi/malachite"
-         name="kyuuriq197/android_device_xiaomi_malachite_twrp"
+         name="mytiantian001/android_device_xiaomi_malachite_twrp"
          remote="github"
-         revision="a16" />
+         revision="A16" />
