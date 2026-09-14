@@ -38,7 +38,7 @@ jobs:
             gnupg \
             gperf \
             imagemagick \
-            lib32ncurses5-dev \
+            lib32ncurses-dev \
             lib32z1-dev \
             libelf-dev \
             liblz4-tool \
