@@ -1,5 +1,1 @@
-<manifest version="1.0" type="device" target-level="8">
-    <sepolicy>
-        <version>34.0</version>
-    </sepolicy>
-</manifest>
+<project path="device/xiaomi/malachite" name="mytiantian001/android_device_xiaomi_malachite_twrp" remote="github" revision="a16" />
