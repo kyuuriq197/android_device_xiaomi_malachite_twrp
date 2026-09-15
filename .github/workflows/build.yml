@@ -91,7 +91,7 @@ jobs:
 
             <project
               path="device/xiaomi/malachite"
-              name="mytiantian001/android_device_xiaomi_malachite_twrp"
+              name="kyuuriq197/android_device_xiaomi_malachite_twrp"
               remote="github"
               revision="A16" />
 
