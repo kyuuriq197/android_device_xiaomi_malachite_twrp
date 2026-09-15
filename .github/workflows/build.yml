@@ -1,3 +1,4 @@
+```yaml
 name: Build TWRP malachite
 
 on:
@@ -6,45 +7,60 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 360
 
     steps:
 
-      - name: Set up job
+      # ============================================================
+      # CLEAN RUNNER
+      # ============================================================
+      - name: Prepare runner
+        shell: bash
         run: |
-          echo "========================================"
-          echo " Building TWRP vendor_boot for malachite"
-          echo "========================================"
-          echo "CPU: $(nproc)"
-          free -h
-          df -h
+          set -e
 
-      - name: Check runner limits
-        run: |
-          echo "===== TIME ====="
-          date
+          echo "========================================"
+          echo " Preparing GitHub Actions runner"
+          echo "========================================"
 
+          echo "===== BEFORE CLEANUP ====="
+          df -h /
+
+          # Remove large preinstalled software that is not needed
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /opt/hostedtoolcache/Java
+          sudo rm -rf /opt/hostedtoolcache/node
+          sudo rm -rf /opt/hostedtoolcache/Python
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/lib/node_modules
+
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+
+          echo
+          echo "===== AFTER CLEANUP ====="
+          df -h /
+
+          echo
           echo "===== MEMORY ====="
           free -h
 
-          echo "===== DISK ====="
-          df -h /
+          echo
+          echo "===== CPU ====="
+          nproc
 
-          echo "===== LOAD ====="
-          uptime
-
-          echo "===== PROCESSES ====="
-          ps aux --sort=-%cpu | head -20
-
-          echo "===== KERNEL MESSAGES ====="
-          dmesg | tail -50 || true
-
-          echo "===== GITHUB ENV ====="
-          echo "RUNNER_OS=$RUNNER_OS"
-          echo "RUNNER_ARCH=$RUNNER_ARCH"
-          echo "RUNNER_NAME=$RUNNER_NAME"
-
+      # ============================================================
+      # DEPENDENCIES
+      # ============================================================
       - name: Install dependencies
+        shell: bash
         run: |
+          set -e
+
           sudo apt-get update
 
           sudo apt-get install -y \
@@ -80,11 +96,17 @@ jobs:
             zip \
             zlib1g-dev
 
+      # ============================================================
+      # REPO
+      # ============================================================
       - name: Install repo
+        shell: bash
         run: |
+          set -e
+
           mkdir -p "$HOME/bin"
 
-          curl -L \
+          curl -fsSL \
             https://storage.googleapis.com/git-repo-downloads/repo \
             -o "$HOME/bin/repo"
 
@@ -94,8 +116,14 @@ jobs:
 
           "$HOME/bin/repo" --version
 
+      # ============================================================
+      # INIT TWRP
+      # ============================================================
       - name: Initialize TWRP
+        shell: bash
         run: |
+          set -e
+
           mkdir -p "$GITHUB_WORKSPACE/twrp"
           cd "$GITHUB_WORKSPACE/twrp"
 
@@ -104,53 +132,77 @@ jobs:
             -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git \
             -b twrp-14.1
 
+      # ============================================================
+      # MALACHITE DEVICE TREE
+      # ============================================================
       - name: Add malachite tree
+        shell: bash
         run: |
+          set -e
+
           cd "$GITHUB_WORKSPACE/twrp"
 
           mkdir -p .repo/local_manifests
 
           cat > .repo/local_manifests/malachite.xml <<'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <manifest>
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+    <project
+        path="device/xiaomi/malachite"
+        name="kyuuriq197/android_device_xiaomi_malachite_twrp"
+        remote="github"
+        revision="A16" />
+</manifest>
+EOF
 
-            <project
-              path="device/xiaomi/malachite"
-              name="kyuuriq197/android_device_xiaomi_malachite_twrp"
-              remote="github"
-              revision="A16" />
-
-          </manifest>
-          EOF
-
-          echo "===== malachite manifest ====="
+          echo "===== MALACHITE MANIFEST ====="
           cat .repo/local_manifests/malachite.xml
 
+      # ============================================================
+      # SYNC
+      # ============================================================
       - name: Sync sources
+        shell: bash
         run: |
+          set -e
+
           cd "$GITHUB_WORKSPACE/twrp"
 
-          echo "===== DISK BEFORE BUILD ====="
-          df -h /
-
-          du -sh .repo 2>/dev/null || true
-          du -sh out 2>/dev/null || true
+          echo "========================================"
+          echo " Syncing TWRP sources"
+          echo "========================================"
 
           repo sync \
             --force-sync \
             --no-clone-bundle \
             --no-tags \
-            -j"$(nproc --all)"
+            -j2
 
+          echo
+          echo "===== DISK AFTER SYNC ====="
+          df -h /
+
+          echo
+          echo "===== MEMORY AFTER SYNC ====="
+          free -h
+
+      # ============================================================
+      # CHECK DEVICE TREE
+      # ============================================================
       - name: Check device tree
+        shell: bash
         run: |
+          set -e
+
           cd "$GITHUB_WORKSPACE/twrp"
 
           echo "========================================"
-          echo " Device tree"
+          echo " Checking malachite device tree"
           echo "========================================"
 
-          ls -la device/xiaomi/malachite
+          test -f device/xiaomi/malachite/AndroidProducts.mk
+          test -f device/xiaomi/malachite/twrp_malachite.mk
+          test -f device/xiaomi/malachite/device.mk
 
           echo
           echo "===== AndroidProducts.mk ====="
@@ -164,22 +216,24 @@ jobs:
           echo "===== device.mk ====="
           cat device/xiaomi/malachite/device.mk
 
-      - name: Initialize and build TWRP
+      # ============================================================
+      # BUILD
+      # ============================================================
+      - name: Build vendor_boot
+        shell: bash
         run: |
+          set -e
+
           cd "$GITHUB_WORKSPACE/twrp"
 
           echo "========================================"
           echo " Initializing build environment"
           echo "========================================"
 
-          echo "===== RUNNER MEMORY ====="
-          free -h
+          export USE_CCACHE=1
+          export CCACHE_EXEC=/usr/bin/ccache
 
-          echo "===== RUNNER CPU ====="
-          nproc
-
-          echo "===== DISK ====="
-          df -h
+          ccache -M 10G || true
 
           source build/envsetup.sh
 
@@ -191,13 +245,20 @@ jobs:
           lunch twrp_malachite-ap2a-eng
 
           echo
-          echo "===== Build variables ====="
+          echo "===== BUILD VARIABLES ====="
           echo "TARGET_PRODUCT=$TARGET_PRODUCT"
           echo "TARGET_RELEASE=$TARGET_RELEASE"
           echo "TARGET_BUILD_VARIANT=$TARGET_BUILD_VARIANT"
 
+          echo
           echo "===== MEMORY ====="
           free -h
+
+          echo
+          echo "===== DISK ====="
+          df -h /
+
+          echo
           echo "===== CPU ====="
           nproc
 
@@ -206,52 +267,108 @@ jobs:
           echo " Building vendor_boot.img"
           echo "========================================"
 
+          # Keep parallelism low on the 4-core runner.
+          # This is intentional.
           mka vendorbootimage -j2
 
-      - name: Check vendor_boot.img
+      # ============================================================
+      # CHECK OUTPUT
+      # ============================================================
+      - name: Check vendor_boot
+        if: success()
+        shell: bash
         run: |
+          set -e
+
           cd "$GITHUB_WORKSPACE/twrp"
+
+          IMG="out/target/product/malachite/vendor_boot.img"
 
           echo "========================================"
           echo " Checking vendor_boot.img"
           echo "========================================"
 
-          if [ ! -f "out/target/product/malachite/vendor_boot.img" ]; then
+          if [ ! -f "$IMG" ]; then
             echo "ERROR: vendor_boot.img was not generated!"
             echo
-            echo "===== Product output ====="
+            echo "===== PRODUCT OUTPUT ====="
             ls -lah out/target/product/malachite/ 2>/dev/null || true
-
-            echo
-            echo "===== Searching all outputs ====="
-            find out \
-              -type f \
-              \( -name "vendor_boot.img" -o -name "*vendor_boot*" \) \
-              -exec ls -lh {} \; \
-              2>/dev/null || true
-
             exit 1
           fi
 
           echo
-          echo "===== File ====="
-          file out/target/product/malachite/vendor_boot.img
+          echo "===== FILE ====="
+          file "$IMG"
 
           echo
-          echo "===== Size ====="
-          ls -lh out/target/product/malachite/vendor_boot.img
-          du -h out/target/product/malachite/vendor_boot.img
+          echo "===== SIZE ====="
+          ls -lh "$IMG"
+          du -h "$IMG"
 
+      # ============================================================
+      # UPLOAD
+      # ============================================================
       - name: Upload vendor_boot.img
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: vendor_boot-malachite
           path: twrp/out/target/product/malachite/vendor_boot.img
           if-no-files-found: error
 
+      # ============================================================
+      # FAILURE DIAGNOSTICS
+      # ============================================================
+      - name: Failure diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          echo "========================================"
+          echo " BUILD FAILED"
+          echo "========================================"
+
+          echo
+          echo "===== TIME ====="
+          date
+
+          echo
+          echo "===== DISK ====="
+          df -h /
+
+          echo
+          echo "===== MEMORY ====="
+          free -h
+
+          echo
+          echo "===== LOAD ====="
+          uptime
+
+          echo
+          echo "===== OOM / KILL CHECK ====="
+          dmesg 2>/dev/null | \
+            grep -Ei \
+            'oom|out of memory|killed process|memory cgroup|signal|killed' \
+            | tail -100 || true
+
+          echo
+          echo "===== LAST BUILD FILES ====="
+          find out/target/product/malachite \
+            -maxdepth 1 \
+            -type f \
+            -printf '%f %s bytes\n' \
+            2>/dev/null \
+            | sort \
+            | tail -50 || true
+
+      # ============================================================
+      # ALWAYS
+      # ============================================================
       - name: Complete job
         if: always()
+        shell: bash
         run: |
           echo "========================================"
           echo " Workflow finished"
           echo "========================================"
+          date
+```
