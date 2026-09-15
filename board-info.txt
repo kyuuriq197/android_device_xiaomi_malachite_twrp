@@ -1,1 +1,1 @@
-require board=malachite|24090RA29C
+require board=malachite|24095PCADG
