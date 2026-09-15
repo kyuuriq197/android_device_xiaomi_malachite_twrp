@@ -178,7 +178,7 @@ jobs:
           echo " Selecting TWRP malachite"
           echo "========================================"
 
-          lunch twrp_malachite-trunk_staging-eng
+          lunch twrp_malachite-ap2a-eng
 
           echo
           echo "===== Build variables ====="
