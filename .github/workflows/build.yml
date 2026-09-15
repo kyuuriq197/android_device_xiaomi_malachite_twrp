@@ -105,6 +105,12 @@ jobs:
         run: |
           cd "$GITHUB_WORKSPACE/twrp"
 
+          echo "===== DISK BEFORE BUILD ====="
+          df -h /
+
+          du -sh .repo 2>/dev/null || true
+          du -sh out 2>/dev/null || true
+
           repo sync \
             --force-sync \
             --no-clone-bundle \
@@ -140,12 +146,6 @@ jobs:
           echo "========================================"
           echo " Initializing build environment"
           echo "========================================"
-
-          echo "===== DISK BEFORE BUILD ====="
-          df -h /
-
-          du -sh .repo 2>/dev/null || true
-          du -sh out 2>/dev/null || true
 
           echo "===== RUNNER MEMORY ====="
           free -h
