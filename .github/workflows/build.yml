@@ -133,8 +133,8 @@ jobs:
           echo "===== device.mk ====="
           cat device/xiaomi/malachite/device.mk
 
-            - name: Initialize and build TWRP
-          run: |
+      - name: Initialize and build TWRP
+        run: |
           cd "$GITHUB_WORKSPACE/twrp"
 
           echo "========================================"
