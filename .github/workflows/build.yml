@@ -129,25 +129,43 @@ jobs:
           echo "===== TWRP makefile ====="
           cat device/xiaomi/malachite/twrp_malachite.mk
 
-      - name: Build TWRP
-        run: |
-          cd "$GITHUB_WORKSPACE/twrp"
+          - name: Build TWRP
+  run: |
+    cd "$GITHUB_WORKSPACE/twrp"
 
-          export ALLOW_MISSING_DEPENDENCIES=true
+    export ALLOW_MISSING_DEPENDENCIES=true
 
-          source build/envsetup.sh
+    source build/envsetup.sh
 
-          echo "========================================"
-          echo " lunch twrp_malachite-eng"
-          echo "========================================"
+    echo "========================================"
+    echo " Available lunch targets"
+    echo "========================================"
 
-          lunch twrp_malachite-eng
+    lunch | grep -i malachite || true
 
-          echo "========================================"
-          echo " Building vendor_boot.img"
-          echo "========================================"
+    echo "========================================"
+    echo " AndroidProducts.mk"
+    echo "========================================"
 
-          mka vendorbootimage -j"$(nproc --all)"
+    cat device/xiaomi/malachite/AndroidProducts.mk
+
+    echo "========================================"
+    echo " Searching TWRP product definitions"
+    echo "========================================"
+
+    grep -R "twrp_malachite" device/xiaomi/malachite 2>/dev/null || true
+
+    echo "========================================"
+    echo " Product makefiles"
+    echo "========================================"
+
+    find device/xiaomi/malachite -maxdepth 2 \
+      -type f \( -name "*product*.mk" -o -name "*device*.mk" \) \
+      -print
+
+    echo "========================================"
+    echo " STOPPING BEFORE BUILD"
+    echo "========================================"
 
       - name: Check output
         run: |
