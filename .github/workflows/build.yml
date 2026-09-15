@@ -126,37 +126,17 @@ jobs:
           cat device/xiaomi/malachite/AndroidProducts.mk
 
           echo
-          echo "===== TWRP makefile ====="
+          echo "===== twrp_malachite.mk ====="
           cat device/xiaomi/malachite/twrp_malachite.mk
 
-            - name: Inspect and Build TWRP
-          run: |
+          echo
+          echo "===== device.mk ====="
+          cat device/xiaomi/malachite/device.mk
+
+      - name: Build TWRP
+        run: |
           cd "$GITHUB_WORKSPACE/twrp"
 
-          echo "========================================"
-          echo " Inspecting malachite build configuration"
-          echo "========================================"
-
-          echo
-          echo "===== AndroidProducts.mk ====="
-          cat device/xiaomi/malachite/AndroidProducts.mk
-
-          echo
-          echo "===== All product makefiles ====="
-          find device/xiaomi/malachite -maxdepth 2 -type f \
-            \( -name "*.mk" -o -name "AndroidProducts.mk" \) \
-            -print
-
-          echo
-          echo "===== Product definitions ====="
-          grep -RniE \
-            "PRODUCT_NAME|COMMON_LUNCH_CHOICES|PRODUCT_RELEASE|PRODUCT_DEVICE" \
-            device/xiaomi/malachite \
-            --include="*.mk" \
-            --include="AndroidProducts.mk" \
-            || true
-
-          echo
           echo "========================================"
           echo " Initializing build environment"
           echo "========================================"
@@ -164,12 +144,64 @@ jobs:
           source build/envsetup.sh
 
           echo
-          echo "===== lunch --list ====="
-          lunch --list
+          echo "===== Available products ====="
+          list_products | grep -i malachite || true
 
           echo
-          echo "===== malachite targets ====="
-          lunch --list | grep -i malachite || true
+          echo "===== Available releases for malachite ====="
+          list_releases twrp_malachite || true
+
+          echo
+          echo "========================================"
+          echo " Selecting TWRP malachite"
+          echo "========================================"
+
+          lunch twrp_malachite trunk_staging eng
+
+          echo
+          echo "===== Build variables ====="
+          echo "TARGET_PRODUCT=$TARGET_PRODUCT"
+          echo "TARGET_RELEASE=$TARGET_RELEASE"
+          echo "TARGET_BUILD_VARIANT=$TARGET_BUILD_VARIANT"
+
+          echo
+          echo "========================================"
+          echo " Building vendor_boot.img"
+          echo "========================================"
+
+          mka vendorbootimage
+
+      - name: Check vendor_boot.img
+        run: |
+          cd "$GITHUB_WORKSPACE/twrp"
+
+          echo "========================================"
+          echo " Checking vendor_boot.img"
+          echo "========================================"
+
+          if [ ! -f "out/target/product/malachite/vendor_boot.img" ]; then
+            echo "ERROR: vendor_boot.img was not generated!"
+            echo
+            echo "===== Product output ====="
+            ls -lah out/target/product/malachite/ 2>/dev/null || true
+            echo
+            echo "===== Searching all outputs ====="
+            find out \
+              -type f \
+              \( -name "vendor_boot.img" -o -name "*vendor_boot*" \) \
+              -exec ls -lh {} \; \
+              2>/dev/null || true
+            exit 1
+          fi
+
+          echo
+          echo "===== File ====="
+          file out/target/product/malachite/vendor_boot.img
+
+          echo
+          echo "===== Size ====="
+          ls -lh out/target/product/malachite/vendor_boot.img
+          du -h out/target/product/malachite/vendor_boot.img
 
       - name: Upload vendor_boot.img
         uses: actions/upload-artifact@v4
