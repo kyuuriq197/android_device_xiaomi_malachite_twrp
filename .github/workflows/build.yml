@@ -156,12 +156,17 @@ jobs:
           echo "TARGET_RELEASE=$TARGET_RELEASE"
           echo "TARGET_BUILD_VARIANT=$TARGET_BUILD_VARIANT"
 
+          echo "===== MEMORY ====="
+          free -h
+          echo "===== CPU ====="
+          nproc
+
           echo
           echo "========================================"
           echo " Building vendor_boot.img"
           echo "========================================"
 
-          mka vendorbootimage -j"$(nproc)"
+          mka vendorbootimage -j2
 
       - name: Check vendor_boot.img
         run: |
