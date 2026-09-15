@@ -243,11 +243,30 @@ jobs:
 
           mka vendorbootimage -j2
 
-      - name: Check vendor_boot
-        if: success()
-        shell: bash
-        run: |
-          set -e
+            - name: Build vendor_boot
+             shell: bash
+             run: |
+          set -euxo pipefail
+
+          cd "$GITHUB_WORKSPACE/twrp"
+
+          echo "========================================"
+          echo " Building TWRP vendor_boot"
+          echo "========================================"
+
+          source build/envsetup.sh
+
+          lunch twrp_malachite-eng
+
+          echo "===== BUILD START ====="
+          mka vendorbootimage -j"$(nproc)"
+
+          echo "===== BUILD OUTPUT ====="
+          ls -lh out/target/product/malachite/
+
+          test -f out/target/product/malachite/vendor_boot.img
+
+          echo "vendor_boot.img successfully built"
 
           cd "$GITHUB_WORKSPACE/twrp"
 
