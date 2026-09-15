@@ -133,35 +133,42 @@ jobs:
           echo "===== device.mk ====="
           cat device/xiaomi/malachite/device.mk
 
-       - name: Initialize and build TWRP
-       run: |
-         cd "$GITHUB_WORKSPACE/twrp"
+      - name: Initialize and build TWRP
+        run: |
+          cd "$GITHUB_WORKSPACE/twrp"
 
-         echo "========================================"
-         echo " Initializing build environment"
-         echo "========================================"
+          echo "========================================"
+          echo " Initializing build environment"
+          echo "========================================"
 
-         source build/envsetup.sh
+          source build/envsetup.sh
 
-         echo
-         echo "========================================"
-         echo " Selecting TWRP malachite"
-         echo "========================================"
+          echo
+          echo "========================================"
+          echo " Available malachite lunch targets"
+          echo "========================================"
 
-         lunch twrp_malachite-eng
+          lunch 2>&1 | grep -i malachite || true
 
-         echo
-         echo "===== Build variables ====="
-         echo "TARGET_PRODUCT=$TARGET_PRODUCT"
-         echo "TARGET_RELEASE=$TARGET_RELEASE"
-         echo "TARGET_BUILD_VARIANT=$TARGET_BUILD_VARIANT"
+          echo
+          echo "========================================"
+          echo " Selecting TWRP malachite"
+          echo "========================================"
 
-         echo
-         echo "========================================"
-         echo " Building vendor_boot.img"
-         echo "========================================"
+          lunch twrp_malachite-eng
 
-         mka vendorbootimage
+          echo
+          echo "===== Build variables ====="
+          echo "TARGET_PRODUCT=$TARGET_PRODUCT"
+          echo "TARGET_RELEASE=$TARGET_RELEASE"
+          echo "TARGET_BUILD_VARIANT=$TARGET_BUILD_VARIANT"
+
+          echo
+          echo "========================================"
+          echo " Building vendor_boot.img"
+          echo "========================================"
+
+          mka vendorbootimage
 
       - name: Check vendor_boot.img
         run: |
@@ -176,6 +183,7 @@ jobs:
             echo
             echo "===== Product output ====="
             ls -lah out/target/product/malachite/ 2>/dev/null || true
+
             echo
             echo "===== Searching all outputs ====="
             find out \
@@ -183,6 +191,7 @@ jobs:
               \( -name "vendor_boot.img" -o -name "*vendor_boot*" \) \
               -exec ls -lh {} \; \
               2>/dev/null || true
+
             exit 1
           fi
 
