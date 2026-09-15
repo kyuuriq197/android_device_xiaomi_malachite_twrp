@@ -141,6 +141,15 @@ jobs:
           echo " Initializing build environment"
           echo "========================================"
 
+          echo "===== RUNNER MEMORY ====="
+          free -h
+
+          echo "===== RUNNER CPU ====="
+          nproc
+
+          echo "===== DISK ====="
+          df -h
+
           source build/envsetup.sh
 
           echo
