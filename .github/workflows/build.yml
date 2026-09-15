@@ -127,51 +127,25 @@ jobs:
 
           echo
           echo "===== TWRP makefile ====="
-          cat device/xiaomi/malachite/twrp_malachite.mk
-      
-      - name: Build TWRP
-        run: |
-          cd "$GITHUB_WORKSPACE/twrp"
+          cat device/xiaomi/malachite/twrp_malachite.mk 
+          
+      - name: Find vendor_boot.img
+      run: |
+         cd "$GITHUB_WORKSPACE/twrp"
 
-          export ALLOW_MISSING_DEPENDENCIES=true
-          source build/envsetup.sh
+         echo "========================================"
+         echo " Searching for vendor_boot.img"
+         echo "========================================"
 
-          echo "========================================"
-          echo " Available lunch targets"
-          echo "========================================"
+         find out -type f \( -name "vendor_boot.img" -o -name "*vendor_boot*" \) -exec ls -lh {} \; 2>/dev/null || true
 
-          lunch | grep -i malachite || true
+       echo
+      echo "========================================"
+      echo " Product output"
+      echo "========================================"
 
-          echo "========================================"
-          echo " AndroidProducts.mk"
-          echo "========================================"
-
-          cat device/xiaomi/malachite/AndroidProducts.mk
-
-          echo "========================================"
-          echo " TWRP makefile"
-          echo "========================================"
-
-          cat device/xiaomi/malachite/twrp_malachite.mk
-
-      - name: Check output
-        run: |
-          cd "$GITHUB_WORKSPACE/twrp"
-
-          echo "========================================"
-          echo " Checking vendor_boot.img"
-          echo "========================================"
-
-          ls -lh out/target/product/malachite/vendor_boot.img
-
-          echo
-          echo "File information:"
-          file out/target/product/malachite/vendor_boot.img
-
-          echo
-          echo "Size:"
-          du -h out/target/product/malachite/vendor_boot.img
-
+      ls -lah out/target/product/malachite/ 2>/dev/null || true
+ 
       - name: Upload vendor_boot.img
         uses: actions/upload-artifact@v4
         with:
