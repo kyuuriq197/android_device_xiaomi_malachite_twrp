@@ -145,36 +145,6 @@ jobs:
 
           echo
           echo "========================================"
-          echo " AndroidProducts.mk"
-          echo "========================================"
-
-          cat device/xiaomi/malachite/AndroidProducts.mk
-
-          echo
-          echo "========================================"
-          echo " twrp_malachite.mk"
-          echo "========================================"
-
-          cat device/xiaomi/malachite/twrp_malachite.mk
-
-          echo
-          echo "========================================"
-          echo " Available lunch targets"
-          echo "========================================"
-
-          lunch 2>&1 | head -300
-
-          echo
-          echo "========================================"
-          echo " Searching malachite"
-          echo "========================================"
-
-          grep -Rni "twrp_malachite" \
-            device/xiaomi/malachite \
-            2>/dev/null || true
-
-          echo
-          echo "========================================"
           echo " Selecting TWRP malachite"
           echo "========================================"
 
