@@ -1,4 +1,3 @@
-```yaml
 name: Build TWRP malachite
 
 on:
@@ -11,9 +10,6 @@ jobs:
 
     steps:
 
-      # ============================================================
-      # CLEAN RUNNER
-      # ============================================================
       - name: Prepare runner
         shell: bash
         run: |
@@ -26,7 +22,6 @@ jobs:
           echo "===== BEFORE CLEANUP ====="
           df -h /
 
-          # Remove large preinstalled software that is not needed
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
@@ -53,9 +48,6 @@ jobs:
           echo "===== CPU ====="
           nproc
 
-      # ============================================================
-      # DEPENDENCIES
-      # ============================================================
       - name: Install dependencies
         shell: bash
         run: |
@@ -96,9 +88,6 @@ jobs:
             zip \
             zlib1g-dev
 
-      # ============================================================
-      # REPO
-      # ============================================================
       - name: Install repo
         shell: bash
         run: |
@@ -116,9 +105,6 @@ jobs:
 
           "$HOME/bin/repo" --version
 
-      # ============================================================
-      # INIT TWRP
-      # ============================================================
       - name: Initialize TWRP
         shell: bash
         run: |
@@ -132,9 +118,6 @@ jobs:
             -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git \
             -b twrp-14.1
 
-      # ============================================================
-      # MALACHITE DEVICE TREE
-      # ============================================================
       - name: Add malachite tree
         shell: bash
         run: |
@@ -145,22 +128,19 @@ jobs:
           mkdir -p .repo/local_manifests
 
           cat > .repo/local_manifests/malachite.xml <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<manifest>
-    <project
-        path="device/xiaomi/malachite"
-        name="kyuuriq197/android_device_xiaomi_malachite_twrp"
-        remote="github"
-        revision="A16" />
-</manifest>
-EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <manifest>
+              <project
+                  path="device/xiaomi/malachite"
+                  name="kyuuriq197/android_device_xiaomi_malachite_twrp"
+                  remote="github"
+                  revision="A16" />
+          </manifest>
+          EOF
 
           echo "===== MALACHITE MANIFEST ====="
           cat .repo/local_manifests/malachite.xml
 
-      # ============================================================
-      # SYNC
-      # ============================================================
       - name: Sync sources
         shell: bash
         run: |
@@ -186,9 +166,6 @@ EOF
           echo "===== MEMORY AFTER SYNC ====="
           free -h
 
-      # ============================================================
-      # CHECK DEVICE TREE
-      # ============================================================
       - name: Check device tree
         shell: bash
         run: |
@@ -216,9 +193,6 @@ EOF
           echo "===== device.mk ====="
           cat device/xiaomi/malachite/device.mk
 
-      # ============================================================
-      # BUILD
-      # ============================================================
       - name: Build vendor_boot
         shell: bash
         run: |
@@ -267,13 +241,8 @@ EOF
           echo " Building vendor_boot.img"
           echo "========================================"
 
-          # Keep parallelism low on the 4-core runner.
-          # This is intentional.
           mka vendorbootimage -j2
 
-      # ============================================================
-      # CHECK OUTPUT
-      # ============================================================
       - name: Check vendor_boot
         if: success()
         shell: bash
@@ -291,7 +260,6 @@ EOF
           if [ ! -f "$IMG" ]; then
             echo "ERROR: vendor_boot.img was not generated!"
             echo
-            echo "===== PRODUCT OUTPUT ====="
             ls -lah out/target/product/malachite/ 2>/dev/null || true
             exit 1
           fi
@@ -305,9 +273,6 @@ EOF
           ls -lh "$IMG"
           du -h "$IMG"
 
-      # ============================================================
-      # UPLOAD
-      # ============================================================
       - name: Upload vendor_boot.img
         if: success()
         uses: actions/upload-artifact@v4
@@ -316,9 +281,6 @@ EOF
           path: twrp/out/target/product/malachite/vendor_boot.img
           if-no-files-found: error
 
-      # ============================================================
-      # FAILURE DIAGNOSTICS
-      # ============================================================
       - name: Failure diagnostics
         if: failure()
         shell: bash
@@ -350,19 +312,6 @@ EOF
             'oom|out of memory|killed process|memory cgroup|signal|killed' \
             | tail -100 || true
 
-          echo
-          echo "===== LAST BUILD FILES ====="
-          find out/target/product/malachite \
-            -maxdepth 1 \
-            -type f \
-            -printf '%f %s bytes\n' \
-            2>/dev/null \
-            | sort \
-            | tail -50 || true
-
-      # ============================================================
-      # ALWAYS
-      # ============================================================
       - name: Complete job
         if: always()
         shell: bash
@@ -371,4 +320,3 @@ EOF
           echo " Workflow finished"
           echo "========================================"
           date
-```
