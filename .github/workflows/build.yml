@@ -129,46 +129,47 @@ jobs:
           echo "===== TWRP makefile ====="
           cat device/xiaomi/malachite/twrp_malachite.mk
 
-      - name: Build TWRP
-        run: |
+            - name: Inspect and Build TWRP
+          run: |
           cd "$GITHUB_WORKSPACE/twrp"
 
           echo "========================================"
-          echo " Building TWRP"
+          echo " Inspecting malachite build configuration"
+          echo "========================================"
+
+          echo
+          echo "===== AndroidProducts.mk ====="
+          cat device/xiaomi/malachite/AndroidProducts.mk
+
+          echo
+          echo "===== All product makefiles ====="
+          find device/xiaomi/malachite -maxdepth 2 -type f \
+            \( -name "*.mk" -o -name "AndroidProducts.mk" \) \
+            -print
+
+          echo
+          echo "===== Product definitions ====="
+          grep -RniE \
+            "PRODUCT_NAME|COMMON_LUNCH_CHOICES|PRODUCT_RELEASE|PRODUCT_DEVICE" \
+            device/xiaomi/malachite \
+            --include="*.mk" \
+            --include="AndroidProducts.mk" \
+            || true
+
+          echo
+          echo "========================================"
+          echo " Initializing build environment"
           echo "========================================"
 
           source build/envsetup.sh
 
           echo
-          echo "===== Available malachite targets ====="
+          echo "===== lunch --list ====="
+          lunch --list
+
+          echo
+          echo "===== malachite targets ====="
           lunch --list | grep -i malachite || true
-
-          echo
-          echo "===== Lunch twrp_malachite-eng ====="
-          lunch twrp_malachite-eng
-
-          echo
-          echo "===== Starting vendor_boot build ====="
-          mka vendorbootimage
-
-      - name: Find vendor_boot.img
-        run: |
-          cd "$GITHUB_WORKSPACE/twrp"
-
-          echo "========================================"
-          echo " Searching for vendor_boot.img"
-          echo "========================================"
-
-          find out -type f \
-            \( -name "vendor_boot.img" -o -name "*vendor_boot*" \) \
-            -exec ls -lh {} \; 2>/dev/null || true
-
-          echo
-          echo "========================================"
-          echo " Product output"
-          echo "========================================"
-
-          ls -lah out/target/product/malachite/ 2>/dev/null || true
 
       - name: Upload vendor_boot.img
         uses: actions/upload-artifact@v4
