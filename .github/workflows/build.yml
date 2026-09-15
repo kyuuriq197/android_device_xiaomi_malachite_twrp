@@ -133,7 +133,7 @@ jobs:
           echo "===== device.mk ====="
           cat device/xiaomi/malachite/device.mk
 
-      - name: Initialize and build TWRP
+            - name: Initialize and build TWRP
         run: |
           cd "$GITHUB_WORKSPACE/twrp"
 
@@ -145,17 +145,40 @@ jobs:
 
           echo
           echo "========================================"
-          echo " Available malachite lunch targets"
+          echo " AndroidProducts.mk"
           echo "========================================"
 
-          lunch 2>&1 | grep -i malachite || true
+          cat device/xiaomi/malachite/AndroidProducts.mk
+
+          echo
+          echo "========================================"
+          echo " twrp_malachite.mk"
+          echo "========================================"
+
+          cat device/xiaomi/malachite/twrp_malachite.mk
+
+          echo
+          echo "========================================"
+          echo " Available lunch targets"
+          echo "========================================"
+
+          lunch 2>&1 | head -300
+
+          echo
+          echo "========================================"
+          echo " Searching malachite"
+          echo "========================================"
+
+          grep -Rni "twrp_malachite" \
+            device/xiaomi/malachite \
+            2>/dev/null || true
 
           echo
           echo "========================================"
           echo " Selecting TWRP malachite"
           echo "========================================"
 
-          lunch twrp_malachite-eng
+          lunch twrp_malachite-trunk_staging-eng
 
           echo
           echo "===== Build variables ====="
@@ -168,7 +191,7 @@ jobs:
           echo " Building vendor_boot.img"
           echo "========================================"
 
-          mka vendorbootimage
+          mka vendorbootimage -j"$(nproc)"
 
       - name: Check vendor_boot.img
         run: |
