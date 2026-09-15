@@ -18,6 +18,31 @@ jobs:
           free -h
           df -h
 
+      - name: Check runner limits
+        run: |
+          echo "===== TIME ====="
+          date
+
+          echo "===== MEMORY ====="
+          free -h
+
+          echo "===== DISK ====="
+          df -h /
+
+          echo "===== LOAD ====="
+          uptime
+
+          echo "===== PROCESSES ====="
+          ps aux --sort=-%cpu | head -20
+
+          echo "===== KERNEL MESSAGES ====="
+          dmesg | tail -50 || true
+
+          echo "===== GITHUB ENV ====="
+          echo "RUNNER_OS=$RUNNER_OS"
+          echo "RUNNER_ARCH=$RUNNER_ARCH"
+          echo "RUNNER_NAME=$RUNNER_NAME"
+
       - name: Install dependencies
         run: |
           sudo apt-get update
