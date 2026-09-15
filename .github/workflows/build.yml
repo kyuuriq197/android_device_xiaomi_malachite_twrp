@@ -42,9 +42,6 @@ jobs:
             lib32z1-dev \
             libelf-dev \
             liblz4-tool \
-            lib32ncurses-dev \
-            lib32z1-dev \
-            libelf-dev \
             libxml2-utils \
             lz4 \
             make \
@@ -118,7 +115,10 @@ jobs:
         run: |
           cd "$GITHUB_WORKSPACE/twrp"
 
-          echo "===== Device tree ====="
+          echo "========================================"
+          echo " Device tree"
+          echo "========================================"
+
           ls -la device/xiaomi/malachite
 
           echo
@@ -127,25 +127,49 @@ jobs:
 
           echo
           echo "===== TWRP makefile ====="
-          cat device/xiaomi/malachite/twrp_malachite.mk 
-          
+          cat device/xiaomi/malachite/twrp_malachite.mk
+
+      - name: Build TWRP
+        run: |
+          cd "$GITHUB_WORKSPACE/twrp"
+
+          echo "========================================"
+          echo " Building TWRP"
+          echo "========================================"
+
+          source build/envsetup.sh
+
+          echo
+          echo "===== Available malachite targets ====="
+          lunch --list | grep -i malachite || true
+
+          echo
+          echo "===== Lunch twrp_malachite-eng ====="
+          lunch twrp_malachite-eng
+
+          echo
+          echo "===== Starting vendor_boot build ====="
+          mka vendorbootimage
+
       - name: Find vendor_boot.img
-      run: |
-         cd "$GITHUB_WORKSPACE/twrp"
+        run: |
+          cd "$GITHUB_WORKSPACE/twrp"
 
-         echo "========================================"
-         echo " Searching for vendor_boot.img"
-         echo "========================================"
+          echo "========================================"
+          echo " Searching for vendor_boot.img"
+          echo "========================================"
 
-         find out -type f \( -name "vendor_boot.img" -o -name "*vendor_boot*" \) -exec ls -lh {} \; 2>/dev/null || true
+          find out -type f \
+            \( -name "vendor_boot.img" -o -name "*vendor_boot*" \) \
+            -exec ls -lh {} \; 2>/dev/null || true
 
-       echo
-      echo "========================================"
-      echo " Product output"
-      echo "========================================"
+          echo
+          echo "========================================"
+          echo " Product output"
+          echo "========================================"
 
-      ls -lah out/target/product/malachite/ 2>/dev/null || true
- 
+          ls -lah out/target/product/malachite/ 2>/dev/null || true
+
       - name: Upload vendor_boot.img
         uses: actions/upload-artifact@v4
         with:
