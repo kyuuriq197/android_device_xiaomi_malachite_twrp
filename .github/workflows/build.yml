@@ -216,7 +216,7 @@ jobs:
           echo " Selecting TWRP malachite"
           echo "========================================"
 
-          lunch twrp_malachite-ap2a-eng
+          lunch twrp_malachite-eng
 
           echo
           echo "===== BUILD VARIABLES ====="
@@ -241,7 +241,7 @@ jobs:
           echo " Building vendor_boot.img"
           echo "========================================"
 
-          mka vendorbootimage -j2
+          mka vendorbootimage -j4
 
             - name: Build vendor_boot
              shell: bash
