@@ -1,0 +1,18 @@
+diff --git a/minuitwrp/events.cpp b/minuitwrp/events.cpp
+index e497df6..336c4b4 100644
+--- a/minuitwrp/events.cpp
++++ b/minuitwrp/events.cpp
+@@ -39,2 +39,3 @@
+ #include <aidl/android/hardware/vibrator/IVibrator.h>
++#include <android-base/properties.h>
+ #include <android/binder_manager.h>
+@@ -161,3 +162,8 @@ int vibrate(int timeout_ms)
+ #elif defined(USE_QTI_AIDL_HAPTICS)
+-    std::shared_ptr<IVibrator> vib = IVibrator::fromBinder(ndk::SpAIBinder(AServiceManager_getService(kVibratorInstance.c_str())));
++    // Recovery may run before servicemanager; vibration is optional, so do not wait for it.
++    if (!android::base::GetBoolProperty("servicemanager.ready", false)) {
++        return 0;
++    }
++    std::shared_ptr<IVibrator> vib = IVibrator::fromBinder(ndk::SpAIBinder(
++            AServiceManager_checkService(kVibratorInstance.c_str())));
+     if (vib != nullptr) {
