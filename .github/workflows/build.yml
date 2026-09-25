@@ -236,16 +236,9 @@ jobs:
           echo "===== CPU ====="
           nproc
 
-          echo
-          echo "========================================"
-          echo " Building vendor_boot.img"
-          echo "========================================"
-
-          mka vendorbootimage -j4
-
-            - name: Build vendor_boot
-             shell: bash
-             run: |
+      - name: Build vendor_boot
+        shell: bash
+        run: |
           set -euxo pipefail
 
           cd "$GITHUB_WORKSPACE/twrp"
