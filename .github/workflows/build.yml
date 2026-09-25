@@ -239,31 +239,35 @@ jobs:
       - name: Build vendor_boot
         shell: bash
         run: |
-          set -euxo pipefail
+         set -euxo pipefail
 
-          cd "$GITHUB_WORKSPACE/twrp"
+         cd "$GITHUB_WORKSPACE/twrp"
 
-          echo "========================================"
-          echo " Building TWRP vendor_boot"
-          echo "========================================"
+         echo "========================================"
+         echo " Building TWRP vendor_boot"
+         echo "========================================"
 
-          source build/envsetup.sh
+         # envsetup.sh обращается к неинициализированному TOP,
+         # поэтому временно отключаем nounset
+         set +u
+         source build/envsetup.sh
+         set -u
 
-          lunch twrp_malachite-ap2a-eng
+         lunch twrp_malachite-ap2a-eng
 
-          echo "===== BUILD START ====="
-          mka vendorbootimage -j"$(nproc)"
+         echo "===== BUILD START ====="
+         mka vendorbootimage -j"$(nproc)"
 
-          echo "===== BUILD OUTPUT ====="
-          ls -lh out/target/product/malachite/
+         echo "===== BUILD OUTPUT ====="
+         ls -lh out/target/product/malachite/
+  
+         test -f out/target/product/malachite/vendor_boot.img
 
-          test -f out/target/product/malachite/vendor_boot.img
+         echo "vendor_boot.img successfully built"
 
-          echo "vendor_boot.img successfully built"
+         IMG="out/target/product/malachite/vendor_boot.img"
 
-          cd "$GITHUB_WORKSPACE/twrp"
-
-          IMG="out/target/product/malachite/vendor_boot.img"
+         echo "Vendor boot: $IMG"
 
           echo "========================================"
           echo " Checking vendor_boot.img"
