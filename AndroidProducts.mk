@@ -17,6 +17,6 @@
 PRODUCT_MAKEFILES := $(LOCAL_DIR)/twrp_malachite.mk
 
 COMMON_LUNCH_CHOICES := \
-    twrp_malachite-trunk_staging-user \
-    twrp_malachite-trunk_staging-userdebug \
-    twrp_malachite-trunk_staging-eng
+    twrp_malachite-ap2a-user \
+    twrp_malachite-ap2a-userdebug \
+    twrp_malachite-ap2a-eng
