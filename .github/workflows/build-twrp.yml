@@ -151,17 +151,16 @@ jobs:
       - name: Fix Android 14 AIDL module names
         run: |
           cd ~/twrp
-          FILE=bootable/recovery/libtar/Android.mk
-          if ! grep -q -- '-ndk_platform' "$FILE"; then
-            echo "::error::Expected legacy AIDL module names were not found in $FILE"
+          if ! grep -R -q --include='Android.mk' -- '-ndk_platform' bootable/recovery; then
+            echo "::error::Expected legacy AIDL module names were not found in bootable/recovery"
             exit 1
           fi
-          sed -i 's/-ndk_platform/-ndk/g' "$FILE"
-          if grep -q -- '-ndk_platform' "$FILE"; then
-            echo "::error::Legacy AIDL module names remain in $FILE"
+          grep -RIlZ --include='Android.mk' -- '-ndk_platform' bootable/recovery | xargs -0 -r sed -i 's/-ndk_platform/-ndk/g'
+          if grep -R -n --include='Android.mk' -- '-ndk_platform' bootable/recovery; then
+            echo "::error::Legacy AIDL module names remain in bootable/recovery"
             exit 1
           fi
-          grep -n -- '-ndk' "$FILE"
+          grep -R -n --include='Android.mk' -- '-ndk' bootable/recovery
 
       - name: Build vendor_boot
         env:
