@@ -1,0 +1,209 @@
+# Build TWRP vendor_boot.img for Redmi Note 14 Pro 5G / POCO X7 (malachite)
+# Runs on GitHub Actions and uploads the resulting image as an artifact.
+name: Build TWRP vendor_boot (malachite)
+
+env:
+  REPO_SYNC_JOBS: 1
+  BUILD_JOBS: 2
+  MIN_FREE_MB: 20000
+  BUILD_DISK_CRIT_MB: 2000
+
+on:
+  workflow_dispatch:
+    inputs:
+      selinux_permissive:
+        description: "Add androidboot.selinux=permissive to the vendor_boot cmdline"
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 350
+    steps:
+      - name: Checkout device tree
+        uses: actions/checkout@v4
+        with:
+          path: device_tree
+
+      - name: Prepare workspace
+        run: |
+          echo "CPU: $(nproc --all) | RAM: $(free -g | awk '/Mem:/ {print $2}') GB"
+          echo "--- disk before cleanup"; df -h / /mnt || true
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
+            /usr/local/share/boost /usr/share/swift /usr/local/.ghcup /opt/microsoft /opt/google \
+            /usr/local/share/powershell /usr/lib/google-cloud-sdk /usr/lib/jvm /usr/share/miniconda \
+            /usr/local/julia* /usr/lib/firefox /opt/az || true
+          sudo docker image prune --all --force || true
+          sudo apt-get clean
+          echo "--- disk after cleanup"; df -h / /mnt || true
+          ROOT_MB=$(df -BM --output=avail / | tail -1 | tr -dc '0-9')
+          MNT_MB=$(df -BM --output=avail /mnt 2>/dev/null | tail -1 | tr -dc '0-9')
+          MNT_MB=${MNT_MB:-0}
+          echo "Free: / = ${ROOT_MB} MB, /mnt = ${MNT_MB} MB"
+          if [ "$MNT_MB" -gt "$ROOT_MB" ] && [ "$MNT_MB" -gt 15000 ]; then
+            WORKDIR=/mnt/twrp; AVAIL=$MNT_MB
+            sudo mkdir -p /mnt/twrp && sudo chown -R "$(id -u):$(id -g)" /mnt/twrp
+            ln -sfn /mnt/twrp /home/runner/twrp
+          else
+            WORKDIR=/home/runner/twrp; AVAIL=$ROOT_MB
+            mkdir -p /home/runner/twrp
+          fi
+          echo "WORKDIR=$WORKDIR" >> "$GITHUB_ENV"
+          echo "Workspace: $WORKDIR with ${AVAIL} MB free"
+          if [ "$AVAIL" -lt "$MIN_FREE_MB" ]; then
+            echo "::error::Runner has only ${AVAIL} MB free; need about ${MIN_FREE_MB} MB."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends git-core git-lfs gnupg flex bison build-essential zip curl \
+            zlib1g-dev libc6-dev-i386 libncurses5 x11proto-core-dev libx11-dev lib32z1-dev \
+            libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig python3 lz4 bc rsync libssl-dev patch
+          mkdir -p ~/bin
+          curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+          chmod a+x ~/bin/repo
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+          git config --global user.name "builder"
+          git config --global user.email "builder@example.com"
+          git config --global color.ui false
+          sudo apt-get clean
+
+      - name: Sync minimal TWRP manifest (twrp-14.1)
+        run: |
+          mkdir -p ~/twrp && cd ~/twrp
+          (
+            while true; do
+              A=$(df -BM --output=avail "$WORKDIR" | tail -1 | tr -dc '0-9')
+              if [ "${A:-0}" -lt 2000 ]; then
+                echo "::error::DISK CRITICAL (${A} MB left), stopping repo sync"
+                pkill -f "repo" || true
+                break
+              fi
+              sleep 5
+            done
+          ) &
+          GUARD=$!
+          repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-14.1
+          set +e
+          repo sync -c -j"${REPO_SYNC_JOBS}" --force-sync --no-clone-bundle --no-tags
+          RC=$?
+          kill "$GUARD" 2>/dev/null || true
+          echo "--- sync result: rc=$RC"; df -h "$WORKDIR"; du -sh .repo . 2>/dev/null || true
+          exit "$RC"
+
+      - name: Free space after sync
+        run: |
+          cd ~/twrp
+          du -sh .repo 2>/dev/null || true
+          rm -rf .repo
+          echo "--- disk after removing .repo"; df -h "$WORKDIR"
+
+      - name: Place device tree at the expected path
+        run: |
+          set -euxo pipefail
+          cd ~/twrp
+          mkdir -p device/xiaomi
+          rm -rf device/xiaomi/malachite
+          cp -a "$GITHUB_WORKSPACE/device_tree" device/xiaomi/malachite
+          test -f device/xiaomi/malachite/twrp_malachite.mk
+          ls -ld device/xiaomi/malachite
+
+      - name: Apply TWRP haptics patch
+        run: |
+          cd ~/twrp
+          PATCH="$PWD/device/xiaomi/malachite/patches/0001-minuitwrp-skip-unavailable-aidl-haptics.patch"
+          if git -C bootable/recovery apply --check "$PATCH"; then
+            git -C bootable/recovery apply "$PATCH"
+            echo "Haptics patch applied with git apply."
+          elif patch -d bootable/recovery -p1 --forward --fuzz=3 < "$PATCH"; then
+            echo "Haptics patch applied with patch --fuzz=3."
+          else
+            echo "::warning::Haptics patch did not apply; continuing without it."
+          fi
+
+      - name: Build vendor_boot
+        env:
+          PERM: ${{ inputs.selinux_permissive }}
+        run: |
+          cd ~/twrp
+          export ALLOW_MISSING_DEPENDENCIES=true
+          export LC_ALL=C
+          if [ "$PERM" = "true" ]; then
+            export MALACHITE_RECOVERY_PERMISSIVE=true
+          fi
+
+          rm -f "$WORKDIR/disk_critical"
+          (
+            while true; do
+              A=$(df -BM --output=avail "$WORKDIR" | tail -1 | tr -dc '0-9')
+              if [ "${A:-0}" -lt "$BUILD_DISK_CRIT_MB" ]; then
+                echo "::error::DISK CRITICAL (${A} MB left), stopping the build"
+                touch "$WORKDIR/disk_critical"
+                pkill -x java || true
+                pkill -x ninja || true
+                pkill -x soong_ui.bash || true
+                break
+              fi
+              sleep 15
+            done
+          ) &
+          GUARD=$!
+
+          set +e
+          source build/envsetup.sh
+          lunch twrp_malachite-ap2a-eng
+          LUNCH_RC=$?
+          if [ "$LUNCH_RC" -ne 0 ]; then
+            echo "::error::lunch twrp_malachite-ap2a-eng failed with rc=$LUNCH_RC"
+            exit "$LUNCH_RC"
+          fi
+          mka vendorbootimage -j"${BUILD_JOBS}" 2>&1 | tee ~/build.log
+          RC=${PIPESTATUS[0]}
+          kill "$GUARD" 2>/dev/null || true
+          echo "--- build result: rc=$RC"; df -h "$WORKDIR"
+          if [ -f "$WORKDIR/disk_critical" ]; then
+            echo "::error::Build stopped because free disk space fell below ${BUILD_DISK_CRIT_MB} MB."
+            exit 1
+          fi
+          exit "$RC"
+
+      - name: Verify and stage output
+        if: success()
+        run: |
+          set -euxo pipefail
+          IMG=~/twrp/out/target/product/malachite/vendor_boot.img
+          test -f "$IMG"
+          ls -lh "$IMG"
+          sha256sum "$IMG"
+          cp "$IMG" "$GITHUB_WORKSPACE/vendor_boot.img"
+          python3 - "$GITHUB_WORKSPACE/vendor_boot.img" <<'PY'
+          import sys
+          p = sys.argv[1]
+          with open(p, 'rb') as f:
+              magic = f.read(8)
+          print('header magic:', magic)
+          if magic != b'VNDRBOOT':
+              raise SystemExit('not a vendor_boot image: bad magic')
+          print('vendor_boot header OK')
+          PY
+
+      - name: Upload vendor_boot.img
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vendor_boot-malachite
+          path: vendor_boot.img
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: /home/runner/build.log
+          if-no-files-found: ignore
+          retention-days: 30
