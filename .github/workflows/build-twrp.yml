@@ -186,31 +186,25 @@ jobs:
           BUILD_LOG="$HOME/build.log"
           : > "$BUILD_LOG"
           exec > >(tee -a "$BUILD_LOG") 2>&1
-          source build/envsetup.sh
-          SOURCE_RC=$?
-          if [ "$SOURCE_RC" -ne 0 ]; then
-            echo "::error::Sourcing build/envsetup.sh failed with rc=$SOURCE_RC"
-            kill "$GUARD" "$HEARTBEAT" 2>/dev/null || true
-            exit "$SOURCE_RC"
-          fi
-          if ! declare -F lunch >/dev/null; then
-            echo "::error::build/envsetup.sh did not define the lunch function"
-            kill "$GUARD" "$HEARTBEAT" 2>/dev/null || true
-            exit 127
-          fi
-          lunch twrp_malachite-ap2a-eng
-          LUNCH_RC=$?
-          if [ "$LUNCH_RC" -ne 0 ]; then
-            echo "::error::lunch twrp_malachite-ap2a-eng failed with rc=$LUNCH_RC"
-            kill "$GUARD" "$HEARTBEAT" 2>/dev/null || true
-            exit "$LUNCH_RC"
-          fi
-          if ! command -v mka >/dev/null 2>&1; then
-            echo "::error::mka is unavailable after lunch; check build/envsetup.sh"
-            kill "$GUARD" "$HEARTBEAT" 2>/dev/null || true
-            exit 127
-          fi
-          timeout --signal=TERM --kill-after=2m 150m mka vendorbootimage -j"${BUILD_JOBS}"
+          timeout --signal=TERM --kill-after=2m 150m bash -c '
+            source build/envsetup.sh
+            SOURCE_RC=$?
+            if [ "$SOURCE_RC" -ne 0 ]; then
+              echo "::error::Sourcing build/envsetup.sh failed with rc=$SOURCE_RC"
+              exit "$SOURCE_RC"
+            fi
+            lunch twrp_malachite-ap2a-eng
+            LUNCH_RC=$?
+            if [ "$LUNCH_RC" -ne 0 ]; then
+              echo "::error::lunch twrp_malachite-ap2a-eng failed with rc=$LUNCH_RC"
+              exit "$LUNCH_RC"
+            fi
+            if ! declare -F mka >/dev/null; then
+              echo "::error::build/envsetup.sh did not define the mka function"
+              exit 127
+            fi
+            mka vendorbootimage -j"${BUILD_JOBS}"
+          '
           RC=$?
           kill "$GUARD" "$HEARTBEAT" 2>/dev/null || true
           if [ "$RC" -ne 0 ]; then
