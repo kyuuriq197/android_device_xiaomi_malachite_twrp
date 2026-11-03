@@ -4,9 +4,11 @@ name: Build TWRP vendor_boot (malachite)
 
 env:
   REPO_SYNC_JOBS: 4
-  BUILD_JOBS: 2
+  BUILD_JOBS: 1
   MIN_FREE_MB: 20000
   BUILD_DISK_CRIT_MB: 2000
+  GOMEMLIMIT: 6GiB
+  GOGC: "50"
 
 on:
   workflow_dispatch:
@@ -101,6 +103,28 @@ jobs:
           rm -rf .repo
           echo "--- disk after removing .repo"; df -h "$WORKDIR"
 
+      - name: Add swap to survive Soong memory spikes
+        run: |
+          set -x
+          sudo swapoff /swapfile 2>/dev/null || true
+          sudo rm -f /swapfile
+          if sudo fallocate -l 16G /swapfile; then
+            echo "swapfile allocated with fallocate"
+          else
+            echo "fallocate failed, using dd"
+            sudo dd if=/dev/zero of=/swapfile bs=1M count=16384 status=progress
+          fi
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          if sudo swapon /swapfile; then
+            echo "swap enabled"
+          else
+            echo "::warning::swap could not be enabled; continuing without it"
+          fi
+          sudo sysctl vm.swappiness=10 || true
+          free -h
+          df -h /
+
       - name: Place device tree at the expected path
         run: |
           set -euxo pipefail
@@ -131,6 +155,8 @@ jobs:
           cd ~/twrp
           export ALLOW_MISSING_DEPENDENCIES=true
           export LC_ALL=C
+          export GOMEMLIMIT="${GOMEMLIMIT:-6GiB}"
+          export GOGC="${GOGC:-50}"
           if [ "$PERM" = "true" ]; then
             export MALACHITE_RECOVERY_PERMISSIVE=true
           fi
@@ -140,17 +166,21 @@ jobs:
             while true; do
               A=$(df -BM --output=avail "$WORKDIR" | tail -1 | tr -dc '0-9')
               if [ "${A:-0}" -lt "$BUILD_DISK_CRIT_MB" ]; then
-                echo "::error::DISK CRITICAL (${A} MB left), stopping the build"
+                echo "::warning::DISK LOW (${A} MB left); not killing the build, just flagging it"
                 touch "$WORKDIR/disk_critical"
-                pkill -x java || true
-                pkill -x ninja || true
-                pkill -x soong_ui.bash || true
-                break
               fi
               sleep 15
             done
           ) &
           GUARD=$!
+
+          (
+            while true; do
+              echo "--- heartbeat $(date -u +%H:%M:%S) disk=$(df -h "$WORKDIR" | tail -1 | awk '{print $4}') mem=$(free -m | awk '/Mem:/ {print $7"MB available"}') swap=$(free -m | awk '/Swap:/ {print $4"MB used"}')"
+              sleep 60
+            done
+          ) &
+          HEARTBEAT=$!
 
           set +e
           source build/envsetup.sh
@@ -158,16 +188,17 @@ jobs:
           LUNCH_RC=$?
           if [ "$LUNCH_RC" -ne 0 ]; then
             echo "::error::lunch twrp_malachite-ap2a-eng failed with rc=$LUNCH_RC"
+            kill "$GUARD" "$HEARTBEAT" 2>/dev/null || true
             exit "$LUNCH_RC"
           fi
-          mka vendorbootimage -j"${BUILD_JOBS}" 2>&1 | tee ~/build.log
+          timeout --signal=TERM --kill-after=2m 150m mka vendorbootimage -j"${BUILD_JOBS}" 2>&1 | tee ~/build.log
           RC=${PIPESTATUS[0]}
+          kill "$GUARD" "$HEARTBEAT" 2>/dev/null || true
           if [ "$RC" -ne 0 ]; then
             echo "--- last 200 lines of build.log"
             tail -n 200 ~/build.log || true
           fi
-          kill "$GUARD" 2>/dev/null || true
-          echo "--- build result: rc=$RC"; df -h "$WORKDIR"
+          echo "--- build result: rc=$RC"; df -h "$WORKDIR"; free -h
           if [ -f "$WORKDIR/disk_critical" ]; then
             echo "::error::Build stopped because free disk space fell below ${BUILD_DISK_CRIT_MB} MB."
             exit 1
