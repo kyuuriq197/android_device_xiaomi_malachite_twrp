@@ -132,9 +132,7 @@ jobs:
           mkdir -p device/xiaomi
           rm -rf device/xiaomi/malachite
           cp -a "$GITHUB_WORKSPACE/device_tree" device/xiaomi/malachite
-          printf '\nPRODUCT_PACKAGES += android.security.apc-ndk_platform\n' >> device/xiaomi/malachite/device.mk
           test -f device/xiaomi/malachite/twrp_malachite.mk
-          grep -n 'android.security.apc-ndk_platform' device/xiaomi/malachite/device.mk
           ls -ld device/xiaomi/malachite
 
       - name: Apply TWRP haptics patch
@@ -149,6 +147,17 @@ jobs:
           else
             echo "::warning::Haptics patch did not apply; continuing without it."
           fi
+
+      - name: Fix Android 14 APC AIDL module name
+        run: |
+          cd ~/twrp
+          FILE=bootable/recovery/libtar/Android.mk
+          if ! grep -q 'android.security.apc-ndk_platform' "$FILE"; then
+            echo "::error::Expected APC dependency was not found in $FILE"
+            exit 1
+          fi
+          sed -i 's/android.security.apc-ndk_platform/android.security.apc-ndk/' "$FILE"
+          grep -n 'android.security.apc-ndk' "$FILE"
 
       - name: Build vendor_boot
         env:
