@@ -132,7 +132,9 @@ jobs:
           mkdir -p device/xiaomi
           rm -rf device/xiaomi/malachite
           cp -a "$GITHUB_WORKSPACE/device_tree" device/xiaomi/malachite
+          printf '\nPRODUCT_PACKAGES += android.security.apc-ndk_platform\n' >> device/xiaomi/malachite/device.mk
           test -f device/xiaomi/malachite/twrp_malachite.mk
+          grep -n 'android.security.apc-ndk_platform' device/xiaomi/malachite/device.mk
           ls -ld device/xiaomi/malachite
 
       - name: Apply TWRP haptics patch
