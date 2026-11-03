@@ -3,7 +3,7 @@
 name: Build TWRP vendor_boot (malachite)
 
 env:
-  REPO_SYNC_JOBS: 1
+  REPO_SYNC_JOBS: 4
   BUILD_JOBS: 2
   MIN_FREE_MB: 20000
   BUILD_DISK_CRIT_MB: 2000
@@ -79,7 +79,7 @@ jobs:
               A=$(df -BM --output=avail "$WORKDIR" | tail -1 | tr -dc '0-9')
               if [ "${A:-0}" -lt 2000 ]; then
                 echo "::error::DISK CRITICAL (${A} MB left), stopping repo sync"
-                pkill -f "repo" || true
+                pkill -f "bin/repo" || true
                 break
               fi
               sleep 5
@@ -88,7 +88,7 @@ jobs:
           GUARD=$!
           repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-14.1
           set +e
-          repo sync -c -j"${REPO_SYNC_JOBS}" --force-sync --no-clone-bundle --no-tags
+          repo sync -c -j"${REPO_SYNC_JOBS}" --force-sync --no-clone-bundle --no-tags --retry-fetches 3
           RC=$?
           kill "$GUARD" 2>/dev/null || true
           echo "--- sync result: rc=$RC"; df -h "$WORKDIR"; du -sh .repo . 2>/dev/null || true
@@ -162,6 +162,10 @@ jobs:
           fi
           mka vendorbootimage -j"${BUILD_JOBS}" 2>&1 | tee ~/build.log
           RC=${PIPESTATUS[0]}
+          if [ "$RC" -ne 0 ]; then
+            echo "--- last 200 lines of build.log"
+            tail -n 200 ~/build.log || true
+          fi
           kill "$GUARD" 2>/dev/null || true
           echo "--- build result: rc=$RC"; df -h "$WORKDIR"
           if [ -f "$WORKDIR/disk_critical" ]; then
