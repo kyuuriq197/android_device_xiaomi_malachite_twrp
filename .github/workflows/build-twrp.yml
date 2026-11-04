@@ -162,6 +162,21 @@ jobs:
           fi
           grep -R -n --include='Android.mk' -- '-ndk' bootable/recovery
 
+      - name: Revert incompatible libtar fscrypt API
+        run: |
+          set -euo pipefail
+          cd ~/twrp
+          PATCH="$RUNNER_TEMP/twrp-libtar-fscrypt.patch"
+          curl -fsSL \
+            https://github.com/TeamWin/android_bootable_recovery/commit/97b849918cf578eec5419de6a8061f11164527af.patch \
+            -o "$PATCH"
+          if ! git -C bootable/recovery apply --reverse --check --include='libtar/*' "$PATCH"; then
+            echo "::error::Could not reverse the incompatible libtar fscrypt API patch"
+            exit 1
+          fi
+          git -C bootable/recovery apply --reverse --include='libtar/*' "$PATCH"
+          echo "Reverted the dynamic fscrypt policy changes in libtar."
+
       - name: Build vendor_boot
         env:
           PERM: ${{ inputs.selinux_permissive }}
