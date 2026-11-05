@@ -177,6 +177,38 @@ jobs:
           git -C bootable/recovery apply --reverse --include='libtar/*' "$PATCH"
           echo "Reverted the dynamic fscrypt policy changes in libtar."
 
+      - name: Add missing libvold link dependencies
+        run: |
+          set -euo pipefail
+          cd ~/twrp
+          python3 - <<'PY'
+          from pathlib import Path
+
+          makefile = Path("bootable/recovery/libtar/Android.mk")
+          text = makefile.read_text()
+
+          old_static = "LOCAL_STATIC_LIBRARIES += libvold libscrypt_static"
+          new_static = old_static + " libasync_safe"
+          if new_static not in text:
+              if text.count(old_static) != 1:
+                  raise SystemExit("Could not find the expected libtar static dependency line")
+              text = text.replace(old_static, new_static, 1)
+
+          old_shared = "        libgatekeeper_aidl\n"
+          new_shared = (
+              "        libgatekeeper_aidl \\\n"
+              "        libboot_control_client \\\n"
+              "        libsysutils\n"
+          )
+          if new_shared not in text:
+              if text.count(old_shared) != 1:
+                  raise SystemExit("Could not find the expected libtar shared dependency list")
+              text = text.replace(old_shared, new_shared, 1)
+
+          makefile.write_text(text)
+          print("Added libasync_safe, libboot_control_client and libsysutils to libtar.")
+          PY
+
       - name: Build vendor_boot
         env:
           PERM: ${{ inputs.selinux_permissive }}
@@ -194,8 +226,9 @@ jobs:
           (
             while true; do
               A=$(df -BM --output=avail "$WORKDIR" | tail -1 | tr -dc '0-9')
-              if [ "${A:-0}" -lt "$BUILD_DISK_CRIT_MB" ]; then
-                echo "::warning::DISK LOW (${A} MB left); not killing the build, just flagging it"
+              ROOT_A=$(df -BM --output=avail / | tail -1 | tr -dc '0-9')
+              if [ "${A:-0}" -lt "$BUILD_DISK_CRIT_MB" ] || [ "${ROOT_A:-0}" -lt "$BUILD_DISK_CRIT_MB" ]; then
+                echo "::warning::DISK LOW (workspace=${A:-unknown} MB, root=${ROOT_A:-unknown} MB); not killing the build, just flagging it"
                 touch "$WORKDIR/disk_critical"
               fi
               sleep 15
@@ -205,7 +238,7 @@ jobs:
 
           (
             while true; do
-              echo "--- heartbeat $(date -u +%H:%M:%S) disk=$(df -h "$WORKDIR" | tail -1 | awk '{print $4}') mem=$(free -m | awk '/Mem:/ {print $7"MB available"}') swap=$(free -m | awk '/Swap:/ {print $4"MB used"}')"
+              echo "--- heartbeat $(date -u +%H:%M:%S) disk=$(df -h "$WORKDIR" | tail -1 | awk '{print $4}') mem=$(free -m | awk '/Mem:/ {print $7"MB available"}') swap=$(free -m | awk '/Swap:/ {print $3"MB used"}')"
               sleep 60
             done
           ) &
@@ -215,7 +248,7 @@ jobs:
           BUILD_LOG="$HOME/build.log"
           : > "$BUILD_LOG"
           exec > >(tee -a "$BUILD_LOG") 2>&1
-          timeout --signal=TERM --kill-after=2m 150m bash -c '
+          timeout --signal=TERM --kill-after=2m 210m bash -c '
             source build/envsetup.sh
             SOURCE_RC=$?
             if [ "$SOURCE_RC" -ne 0 ]; then
